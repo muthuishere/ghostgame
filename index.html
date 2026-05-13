@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>The Last House</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23000'/%3E%3Cpath d='M32 14c-8 0-14 6-14 14v22h6v-8h4v8h8v-8h4v8h6V28c0-8-6-14-14-14zm-4 16a3 3 0 110-6 3 3 0 010 6zm8 0a3 3 0 110-6 3 3 0 010 6z' fill='%23b00'/%3E%3C/svg%3E" />
+</head>
+<body>
+  <div id="game-root">
+    <canvas id="scene"></canvas>
+
+    <!-- HUD overlay -->
+    <div id="hud" class="hidden">
+      <div id="hud-top">
+        <div id="sanity-wrap">
+          <div class="hud-label">SANITY</div>
+          <div id="sanity-bar"><div id="sanity-fill"></div></div>
+        </div>
+        <div id="hits-wrap">
+          <div class="hud-label">LIFE</div>
+          <div id="hits">
+            <span class="heart">&#x2665;</span>
+            <span class="heart">&#x2665;</span>
+            <span class="heart">&#x2665;</span>
+          </div>
+        </div>
+        <div id="floor-wrap">
+          <div class="hud-label">FLOOR</div>
+          <div id="floor-num">1/10</div>
+        </div>
+      </div>
+
+      <div id="hud-bottom">
+        <div id="inventory"></div>
+        <div id="objective"></div>
+      </div>
+
+      <!-- Toast / subtitles -->
+      <div id="toast"></div>
+      <div id="whisper"></div>
+
+      <!-- Mobile controls -->
+      <div id="mobile-controls" class="hidden">
+        <div id="joystick">
+          <div id="joystick-knob"></div>
+        </div>
+        <div id="action-buttons">
+          <button id="btn-interact" class="action-btn">USE</button>
+          <button id="btn-flashlight" class="action-btn">LIGHT</button>
+          <button id="btn-shoot" class="action-btn">FIRE</button>
+        </div>
+        <div id="look-pad"></div>
+      </div>
+
+      <!-- Vignette and damage overlays -->
+      <div id="vignette"></div>
+      <div id="damage-flash"></div>
+      <div id="ghost-flash"></div>
+      <div id="static-overlay"></div>
+    </div>
+
+    <!-- Start screen -->
+    <div id="start-screen">
+      <div class="title-stack">
+        <h1 class="title">THE LAST HOUSE</h1>
+        <p class="tagline">Find the pieces. Build the car. Don't look back.</p>
+        <div class="lore">
+          <p>You woke up here. The doors are sealed. The car in the driveway is missing parts.</p>
+          <p>Search the rooms. Take what you can. Something else lives here.</p>
+        </div>
+        <button id="btn-start">ENTER THE HOUSE</button>
+        <div class="controls-help">
+          <div><strong>Desktop:</strong> WASD move &middot; Mouse look &middot; E interact &middot; F flashlight &middot; Click fire</div>
+          <div><strong>Mobile:</strong> Joystick move &middot; Drag right side to look &middot; Tap buttons</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- End screens -->
+    <div id="end-screen" class="hidden">
+      <h1 id="end-title"></h1>
+      <p id="end-message"></p>
+      <button id="btn-restart">TRY AGAIN</button>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading">
+      <div class="loading-ring"></div>
+      <div class="loading-text">Opening the door...</div>
+    </div>
+  </div>
+
+  <!-- Three.js via CDN, importmap so module specifiers work -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
