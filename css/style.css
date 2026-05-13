@@ -13,8 +13,10 @@
 }
 
 html, body {
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
+  width: 100dvw;
+  height: 100dvh;
   background: #000;
   color: #d8d8d8;
   font-family: 'Georgia', 'Times New Roman', serif;
@@ -25,6 +27,10 @@ html, body {
 #game-root {
   position: fixed;
   inset: 0;
+  width: 100vw;
+  height: 100vh;
+  width: 100dvw;
+  height: 100dvh;
   background: #000;
 }
 
@@ -62,8 +68,8 @@ html, body {
 
 .title-stack {
   text-align: center;
-  padding: 24px;
-  max-width: 540px;
+  padding: 32px;
+  max-width: min(720px, 92vw);
 }
 
 .title {
@@ -125,6 +131,69 @@ html, body {
   font-size: 0.75rem;
   color: #555;
   line-height: 1.7;
+}
+
+.credit {
+  margin-top: 38px;
+  padding-top: 24px;
+  border-top: 1px solid #2a0000;
+}
+
+.credit-label {
+  color: #8a4040;
+  font-style: italic;
+  letter-spacing: 0.18em;
+  font-size: 0.85rem;
+  margin-bottom: 14px;
+  text-transform: lowercase;
+}
+
+.credit-row {
+  display: flex;
+  justify-content: center;
+  gap: 22px;
+  flex-wrap: wrap;
+}
+
+.credit-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.credit-card img {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 2px solid #5a0000;
+  filter: grayscale(0.55) brightness(0.85) contrast(1.15);
+  box-shadow: 0 0 14px rgba(120, 0, 0, 0.45);
+  transition: filter 0.3s, box-shadow 0.3s;
+}
+
+.credit-card:hover img {
+  filter: grayscale(0) brightness(1) contrast(1);
+  box-shadow: 0 0 24px rgba(200, 0, 0, 0.6);
+}
+
+.credit-card figcaption {
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  color: #aa7070;
+}
+
+.end-credit {
+  margin-top: 28px;
+  color: #6a3030;
+  font-style: italic;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+}
+
+.end-credit span {
+  color: #a05050;
 }
 
 /* ---------- HUD ---------- */
@@ -304,10 +373,31 @@ html, body {
   pointer-events: none;
   background: radial-gradient(
     ellipse at center,
-    transparent 30%,
-    rgba(0, 0, 0, 0.6) 70%,
-    rgba(0, 0, 0, 0.95) 100%
+    transparent 60%,
+    rgba(0, 0, 0, 0.30) 85%,
+    rgba(0, 0, 0, 0.65) 100%
   );
+}
+
+#puzzle-hint {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0) + 70px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(8, 12, 30, 0.78);
+  border: 1px solid #4a6abf;
+  color: #c0d8ff;
+  font-family: 'Courier New', monospace;
+  font-size: clamp(0.95rem, 2.5vw, 1.15rem);
+  letter-spacing: 0.18em;
+  padding: 12px 22px;
+  text-transform: uppercase;
+  text-shadow: 0 0 10px #4060a0;
+  box-shadow: 0 0 24px rgba(80, 120, 220, 0.35);
+  pointer-events: none;
+  z-index: 20;
+  text-align: center;
+  max-width: 90%;
 }
 
 #damage-flash {
@@ -383,26 +473,31 @@ html, body {
 
 #action-buttons {
   position: absolute;
-  bottom: calc(env(safe-area-inset-bottom, 0) + 30px);
-  right: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  bottom: calc(env(safe-area-inset-bottom, 0) + 24px);
+  right: 14px;
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: 8px;
   pointer-events: auto;
 }
 
 .action-btn {
-  width: 80px;
-  height: 60px;
+  width: 76px;
+  height: 56px;
   border-radius: 8px;
   background: rgba(20, 0, 0, 0.6);
   border: 1px solid #5a0000;
   color: #d0d0d0;
   font-family: 'Courier New', monospace;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   letter-spacing: 0.1em;
   cursor: pointer;
   touch-action: manipulation;
+}
+
+#btn-bomb {
+  border-color: #6a4a00;
+  color: #e0c060;
 }
 
 .action-btn:active {

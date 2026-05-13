@@ -1,0 +1,26 @@
+version: '3'
+
+vars:
+  PORT: '{{.PORT | default "8000"}}'
+  HOST: '{{.HOST | default "127.0.0.1"}}'
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+
+  serve:
+    desc: Live-reload dev server (auto-refresh on file changes). Default task for local dev.
+    cmds:
+      - npx --yes live-server --host={{.HOST}} --port={{.PORT}} --no-browser --wait=150 --ignore="node_modules,.git" .
+
+  serve:open:
+    desc: Same as serve, but opens the browser automatically.
+    cmds:
+      - npx --yes live-server --host={{.HOST}} --port={{.PORT}} --wait=150 --ignore="node_modules,.git" .
+
+  serve:python:
+    desc: Plain Python static server (no live reload). Fallback when Node is unavailable.
+    cmds:
+      - python3 -m http.server {{.PORT}} --bind {{.HOST}}

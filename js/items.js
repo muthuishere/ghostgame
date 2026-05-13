@@ -26,6 +26,8 @@ export const ITEM_TYPES = {
   cat:       { label: 'Black Cat',   color: 0x101010, kind: 'pet',       emissive: 0x002a2a },
   dog:       { label: 'Guard Dog',   color: 0x402010, kind: 'pet',       emissive: 0x002020 },
   fire:      { label: 'Fire',        color: 0xff4a00, kind: 'hazard',    emissive: 0xff2200 },
+  doll:      { label: 'Doll',        color: 0xf0d0c0, kind: 'hazard',    emissive: 0x440000 },
+  shrine:    { label: 'Shrine',      color: 0x80a0ff, kind: 'shrine',    emissive: 0x2040a0 },
 };
 
 export class Items {
@@ -78,6 +80,14 @@ export class Items {
     if (floorIndex === 4) extras.push('dog', 'bullets');
     if (floorIndex === 6) extras.push('bomb', 'fire', 'bullets');
     if (floorIndex === 8) extras.push('bullets', 'fire', 'fire');
+    // dolls on even-numbered floors (excluding ground floor) — porcelain jumpscare
+    if (floorIndex === 2 || floorIndex === 4 || floorIndex === 6 || floorIndex === 8) {
+      extras.push('doll');
+    }
+    // shrines on odd floors — they grant a way to bargain with the house
+    if (floorIndex === 1 || floorIndex === 3 || floorIndex === 5 || floorIndex === 7) {
+      extras.push('shrine');
+    }
     // every floor gets a wildcard
     const wild = ['bullets', 'bomb', 'fire', 'cat'][Math.floor(this.rng() * 4)];
     extras.push(wild);
@@ -112,6 +122,10 @@ export class Items {
       mesh = this._makeBomb();
     } else if (type === 'key') {
       mesh = this._makeKey();
+    } else if (type === 'doll') {
+      mesh = this._makeDoll();
+    } else if (type === 'shrine') {
+      mesh = this._makeShrine();
     } else {
       // generic glowing pickup
       const geo = new THREE.IcosahedronGeometry(0.3, 0);
@@ -125,7 +139,8 @@ export class Items {
       mesh = new THREE.Mesh(geo, mat);
     }
 
-    mesh.position.set(px, type === 'fire' ? 0 : 0.7, pz);
+    const baseY = (type === 'fire' || type === 'doll' || type === 'shrine') ? 0 : 0.7;
+    mesh.position.set(px, baseY, pz);
     mesh.userData.type = type;
     mesh.userData.bobOffset = this.rng() * Math.PI * 2;
     this.scene.add(mesh);
@@ -136,13 +151,30 @@ export class Items {
       light = new THREE.PointLight(0xff5a10, 2.5, 8, 2);
       light.position.set(px, 1, pz);
       this.scene.add(light);
+    } else if (type === 'shrine') {
+      light = new THREE.PointLight(0x80a0ff, 1.8, 9, 2);
+      light.position.set(px, 1.2, pz);
+      this.scene.add(light);
+    } else if (type === 'doll') {
+      light = new THREE.PointLight(0xff4040, 0.4, 4, 2);
+      light.position.set(px, 0.4, pz);
+      this.scene.add(light);
     } else if (def.kind === 'essential' || def.kind === 'pet') {
-      light = new THREE.PointLight(def.emissive || 0x442200, 0.6, 4, 2);
+      light = new THREE.PointLight(def.emissive || 0x442200, 0.9, 5, 2);
       light.position.set(px, 1, pz);
       this.scene.add(light);
     }
 
-    this.activeItems.push({ type, def, mesh, light, position: new THREE.Vector3(px, 1, pz), room, floorIndex });
+    const entry = {
+      type, def, mesh, light,
+      position: new THREE.Vector3(px, 1, pz),
+      room, floorIndex,
+    };
+    if (type === 'doll') {
+      entry.triggered = false;
+      entry.scareTime = 0;
+    }
+    this.activeItems.push(entry);
   }
 
   _makeFire() {
@@ -255,6 +287,66 @@ export class Items {
     return group;
   }
 
+  _makeDoll() {
+    // sitting porcelain doll: round head, dress body, button eyes that catch the light
+    const group = new THREE.Group();
+    const porcelain = new THREE.MeshStandardMaterial({
+      color: 0xf0d8c8, roughness: 0.5, metalness: 0.05, emissive: 0x110000,
+    });
+    const dress = new THREE.MeshStandardMaterial({
+      color: 0x4a0010, roughness: 0.85, emissive: 0x200008,
+    });
+    const body = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.55, 10), dress);
+    body.position.y = 0.27;
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), porcelain);
+    head.position.y = 0.65;
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff3030 });
+    const eL = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), eyeMat);
+    const eR = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), eyeMat);
+    eL.position.set(-0.07, 0.7, 0.18);
+    eR.position.set(0.07, 0.7, 0.18);
+    // crack across the face
+    const crack = new THREE.Mesh(
+      new THREE.BoxGeometry(0.005, 0.18, 0.01),
+      new THREE.MeshBasicMaterial({ color: 0x100000 })
+    );
+    crack.position.set(0.02, 0.66, 0.21);
+    crack.rotation.z = 0.3;
+    group.add(body, head, eL, eR, crack);
+    group.userData.head = head;
+    group.userData.eyes = [eL, eR];
+    return group;
+  }
+
+  _makeShrine() {
+    // low ritual circle: stone ring + 3 glowing runes that float above
+    const group = new THREE.Group();
+    const ringMat = new THREE.MeshStandardMaterial({
+      color: 0x3a3a4a, roughness: 0.7, emissive: 0x10204a, emissiveIntensity: 0.4,
+    });
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.08, 8, 32), ringMat);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 0.04;
+    const inner = new THREE.Mesh(
+      new THREE.CircleGeometry(0.85, 32),
+      new THREE.MeshBasicMaterial({ color: 0x101830, transparent: true, opacity: 0.6 })
+    );
+    inner.rotation.x = -Math.PI / 2;
+    inner.position.y = 0.05;
+    const runeMat = new THREE.MeshBasicMaterial({ color: 0x80b0ff });
+    const runes = [];
+    for (let i = 0; i < 3; i++) {
+      const r = new THREE.Mesh(new THREE.OctahedronGeometry(0.12, 0), runeMat);
+      const a = (i / 3) * Math.PI * 2;
+      r.position.set(Math.cos(a) * 0.55, 0.9 + i * 0.05, Math.sin(a) * 0.55);
+      runes.push(r);
+      group.add(r);
+    }
+    group.add(ring, inner);
+    group.userData.runes = runes;
+    return group;
+  }
+
   /** Returns the item under the player if within pickup range. */
   itemNear(position, radius = 1.4) {
     let best = null;
@@ -307,7 +399,62 @@ export class Items {
       if (it.type === 'cat' || it.type === 'dog') {
         it.mesh.position.y = Math.sin(time * 3 + it.mesh.userData.bobOffset) * 0.04;
       }
+      // doll: idle subtle sway; if triggered, lurch toward camera and fade out
+      if (it.type === 'doll') {
+        if (it.triggered) {
+          it.scareTime += dt;
+          // 0..0.25s: rapid scale-up + lurch; after 1.2s: vanish
+          const s = it.scareTime < 0.25
+            ? 1 + (it.scareTime / 0.25) * 1.8
+            : 2.8 - Math.min(1, (it.scareTime - 0.25) / 0.8) * 1.8;
+          it.mesh.scale.setScalar(s);
+          it.mesh.rotation.y += dt * 8;
+          if (it.light) it.light.intensity = 0.4 + Math.sin(it.scareTime * 40) * 0.6;
+        } else {
+          const head = it.mesh.userData.head;
+          if (head) head.rotation.y = Math.sin(time * 0.7 + it.mesh.userData.bobOffset) * 0.4;
+        }
+      }
+      // shrine: spin and bob the runes; pulse the column light
+      if (it.type === 'shrine') {
+        const runes = it.mesh.userData.runes;
+        if (runes) {
+          for (let i = 0; i < runes.length; i++) {
+            const r = runes[i];
+            const a = time * 0.6 + (i / runes.length) * Math.PI * 2;
+            r.position.x = Math.cos(a) * 0.55;
+            r.position.z = Math.sin(a) * 0.55;
+            r.position.y = 0.9 + Math.sin(time * 2 + i) * 0.08;
+            r.rotation.y += dt * 1.5;
+          }
+        }
+        if (it.light) it.light.intensity = 1.5 + Math.sin(time * 3) * 0.5;
+      }
     }
+  }
+
+  /** Returns an untriggered doll within radius, if any. */
+  dollNear(position, radius = 2.5) {
+    const r2 = radius * radius;
+    for (const it of this.activeItems) {
+      if (it.type !== 'doll' || it.triggered) continue;
+      const dx = it.position.x - position.x;
+      const dz = it.position.z - position.z;
+      if (dx * dx + dz * dz < r2) return it;
+    }
+    return null;
+  }
+
+  /** Returns a shrine within radius, if any. */
+  shrineNear(position, radius = 2.0) {
+    const r2 = radius * radius;
+    for (const it of this.activeItems) {
+      if (it.type !== 'shrine') continue;
+      const dx = it.position.x - position.x;
+      const dz = it.position.z - position.z;
+      if (dx * dx + dz * dz < r2) return it;
+    }
+    return null;
   }
 
   _clear() {

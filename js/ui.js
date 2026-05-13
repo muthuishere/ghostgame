@@ -33,9 +33,20 @@ export class UI {
     this.elDamage = document.getElementById('damage-flash');
     this.elGhostFlash = document.getElementById('ghost-flash');
     this.elStatic = document.getElementById('static-overlay');
+    this.elPuzzleHint = document.getElementById('puzzle-hint');
 
     this.toastTimer = 0;
     this.whisperTimer = 0;
+  }
+
+  showHint(text) {
+    if (!this.elPuzzleHint) return;
+    this.elPuzzleHint.textContent = text;
+    this.elPuzzleHint.classList.remove('hidden');
+  }
+
+  hideHint() {
+    this.elPuzzleHint?.classList.add('hidden');
   }
 
   show() {

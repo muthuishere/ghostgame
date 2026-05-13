@@ -62,12 +62,17 @@ export class Mansion {
   _mat(color, opts = {}) {
     const key = color + ':' + JSON.stringify(opts);
     if (!this.matCache[key]) {
+      // Auto-derive a faint emissive from the base color so very dark walls
+      // (e.g. 0x2a1f18) are never pitch-black under low ambient — the player
+      // can read the room shape without losing the horror tone.
+      const autoEmissive = opts.emissive ?? color;
+      const autoEmissiveIntensity = opts.emissiveIntensity ?? 0.6;
       this.matCache[key] = new THREE.MeshStandardMaterial({
         color,
         roughness: opts.roughness ?? 0.95,
         metalness: opts.metalness ?? 0.02,
-        emissive: opts.emissive ?? 0x000000,
-        emissiveIntensity: opts.emissiveIntensity ?? 0,
+        emissive: autoEmissive,
+        emissiveIntensity: autoEmissiveIntensity,
         side: opts.side ?? THREE.FrontSide,
       });
     }

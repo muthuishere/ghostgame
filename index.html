@@ -54,6 +54,7 @@
           <button id="btn-interact" class="action-btn">USE</button>
           <button id="btn-flashlight" class="action-btn">LIGHT</button>
           <button id="btn-shoot" class="action-btn">FIRE</button>
+          <button id="btn-bomb" class="action-btn">BOMB</button>
         </div>
         <div id="look-pad"></div>
       </div>
@@ -63,6 +64,9 @@
       <div id="damage-flash"></div>
       <div id="ghost-flash"></div>
       <div id="static-overlay"></div>
+
+      <!-- Puzzle hint banner (visible only while inside a shrine puzzle room) -->
+      <div id="puzzle-hint" class="hidden"></div>
     </div>
 
     <!-- Start screen -->
@@ -76,8 +80,26 @@
         </div>
         <button id="btn-start">ENTER THE HOUSE</button>
         <div class="controls-help">
-          <div><strong>Desktop:</strong> WASD move &middot; Mouse look &middot; E interact &middot; F flashlight &middot; Click fire</div>
+          <div><strong>Desktop:</strong> WASD move &middot; Mouse look &middot; E interact &middot; F flashlight &middot; Click fire &middot; B bomb</div>
           <div><strong>Mobile:</strong> Joystick move &middot; Drag right side to look &middot; Tap buttons</div>
+        </div>
+
+        <div class="credit">
+          <div class="credit-label">A game built scarily by</div>
+          <div class="credit-row">
+            <figure class="credit-card">
+              <img src="assets/photos/sreevarshan.jpg" alt="Sreevarshan" />
+              <figcaption>SREEVARSHAN</figcaption>
+            </figure>
+            <figure class="credit-card">
+              <img src="assets/photos/sreejan.jpg" alt="Sreejan" />
+              <figcaption>SREEJAN</figcaption>
+            </figure>
+            <figure class="credit-card">
+              <img src="assets/photos/magizhini.jpg" alt="Magizhini" />
+              <figcaption>MAGIZHINI</figcaption>
+            </figure>
+          </div>
         </div>
       </div>
     </div>
@@ -87,6 +109,7 @@
       <h1 id="end-title"></h1>
       <p id="end-message"></p>
       <button id="btn-restart">TRY AGAIN</button>
+      <div class="end-credit">a game built scarily by <span>Sreevarshan</span> &middot; <span>Sreejan</span> &middot; <span>Magizhini</span></div>
     </div>
 
     <!-- Loading -->

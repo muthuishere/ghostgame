@@ -48,43 +48,55 @@ export class Ghost {
   }
 
   _build() {
-    // tall stretched silhouette
-    const bodyGeo = new THREE.ConeGeometry(0.9, 3.2, 8);
-    bodyGeo.translate(0, 1.6, 0);
+    // tall stretched silhouette — pale white, clearly visible
+    const bodyGeo = new THREE.ConeGeometry(1.0, 3.8, 10);
+    bodyGeo.translate(0, 1.9, 0);
     const bodyMat = new THREE.MeshBasicMaterial({
-      color: 0xeeeeee,
+      color: 0xf4eaea,
       transparent: true,
-      opacity: 0.18,
+      opacity: 0.55,
       side: THREE.DoubleSide,
       depthWrite: false,
     });
     this.body = new THREE.Mesh(bodyGeo, bodyMat);
     this.group.add(this.body);
 
-    // wisp shell - second outer layer
-    const shellGeo = new THREE.ConeGeometry(1.4, 3.8, 8);
-    shellGeo.translate(0, 1.9, 0);
+    // wisp shell — outer red aura
+    const shellGeo = new THREE.ConeGeometry(1.6, 4.2, 10);
+    shellGeo.translate(0, 2.1, 0);
     const shellMat = new THREE.MeshBasicMaterial({
-      color: 0x6a0000,
+      color: 0x8a0808,
       transparent: true,
-      opacity: 0.08,
+      opacity: 0.22,
       side: THREE.DoubleSide,
       depthWrite: false,
     });
     this.shell = new THREE.Mesh(shellGeo, shellMat);
     this.group.add(this.shell);
 
-    // glowing eyes
-    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff2020 });
-    this.eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), eyeMat);
-    this.eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), eyeMat);
-    this.eyeL.position.set(-0.15, 2.4, 0.4);
-    this.eyeR.position.set(0.15, 2.4, 0.4);
+    // dark face plate (a hollow void behind the eyes)
+    const faceMat = new THREE.MeshBasicMaterial({
+      color: 0x000000,
+      transparent: true,
+      opacity: 0.85,
+      depthWrite: false,
+    });
+    this.face = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 10), faceMat);
+    this.face.position.set(0, 2.55, 0.35);
+    this.face.scale.set(1, 1.15, 0.6);
+    this.group.add(this.face);
+
+    // glowing eyes — bigger, brighter
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff3030 });
+    this.eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 10), eyeMat);
+    this.eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 10), eyeMat);
+    this.eyeL.position.set(-0.18, 2.6, 0.55);
+    this.eyeR.position.set(0.18, 2.6, 0.55);
     this.group.add(this.eyeL, this.eyeR);
 
     // ambient red glow that follows ghost
-    this.glow = new THREE.PointLight(0xff0a0a, 0.0, 7, 2);
-    this.glow.position.set(0, 1.5, 0);
+    this.glow = new THREE.PointLight(0xff1a1a, 0.6, 9, 2);
+    this.glow.position.set(0, 1.8, 0);
     this.group.add(this.glow);
   }
 
@@ -155,9 +167,22 @@ export class Ghost {
     this.group.position.y = Math.sin(time * 1.5) * 0.15;
 
     // eyes glint
-    const glint = 0.6 + Math.sin(time * 8) * 0.3;
+    const glint = 0.7 + Math.sin(time * 8) * 0.3;
     this.eyeL.scale.setScalar(glint);
     this.eyeR.scale.setScalar(glint);
+
+    // warble: in hunt/frenzy, body wobbles non-uniformly — feels wrong, alive, dreadful
+    const hunting = this.state === 'hunt' || this.state === 'frenzy';
+    if (hunting) {
+      const wobX = 1 + Math.sin(time * 11) * 0.08;
+      const wobY = 1 + Math.sin(time * 7 + 1.3) * 0.12;
+      const wobZ = 1 + Math.sin(time * 13 + 2.1) * 0.08;
+      this.body.scale.set(wobX, wobY, wobZ);
+      this.shell.scale.set(wobX * 1.05, wobY * 1.02, wobZ * 1.05);
+    } else {
+      this.body.scale.set(1, 1, 1);
+      this.shell.scale.set(1, 1, 1);
+    }
 
     // cool down repel
     if (this.repelTimer > 0) {
@@ -220,9 +245,10 @@ export class Ghost {
     }
     this.cooldown = Math.max(0, this.cooldown - dt);
 
-    // intensify ambient red glow when close
+    // intensify ambient red glow when close — baseline 0.6 so the ghost is
+    // never invisible in the dark
     const closeness = Math.max(0, 1 - dist / SENSE_RADIUS);
-    this.glow.intensity = closeness * (this.frenzy ? 2.4 : 1.4);
+    this.glow.intensity = 0.6 + closeness * (this.frenzy ? 3.2 : 2.0);
 
     return { hit, distance: dist };
   }

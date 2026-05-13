@@ -160,6 +160,10 @@ export class Controls {
       e.preventDefault();
       this.callbacks.shoot?.();
     });
+    document.getElementById('btn-bomb')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.callbacks.bomb?.();
+    });
   }
 
   /** Call every frame to translate held keys into move input */

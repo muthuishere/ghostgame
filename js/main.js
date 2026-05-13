@@ -12,6 +12,7 @@ import { Items } from './items.js';
 import { Ghost } from './ghost.js';
 import { UI } from './ui.js';
 import { Audio } from './audio.js';
+import { PuzzleRoom } from './puzzle.js';
 
 // ----- seeded RNG (mulberry32) so each playthrough is unique but reproducible
 function makeRng(seed) {
@@ -33,29 +34,44 @@ class Game {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setClearColor(0x000000);
     this.renderer.shadowMap.enabled = false;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.6;
 
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.FogExp2(0x000000, 0.10);
+    // Thinner, slightly bluish fog so rooms are readable but distance still fades
+    this.scene.fog = new THREE.FogExp2(0x0a0a16, 0.018);
 
-    this.camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.05, 60);
+    this.camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.05, 100);
     this.camera.position.set(0, 1.6, 0);
 
-    // very faint ambient so we can see anything; flashlight does the real work
-    this.scene.add(new THREE.AmbientLight(0x101018, 0.25));
+    // Bright ambient so geometry is clearly visible — we trade some
+    // horror-darkness for "the player can actually see and play"
+    this.scene.add(new THREE.AmbientLight(0x504058, 1.6));
 
-    // moonlight from above - cold blue
-    const moon = new THREE.DirectionalLight(0x202840, 0.12);
+    // moonlight from above — cold blue, strong enough to read shapes at distance
+    const moon = new THREE.DirectionalLight(0xa8c0e0, 1.4);
     moon.position.set(10, 30, 10);
     this.scene.add(moon);
 
-    // flashlight: spotlight attached to camera
-    this.flashlight = new THREE.SpotLight(0xffeaa8, 6, 18, Math.PI * 0.16, 0.4, 1.0);
+    // warm hemisphere fill — keeps floors and side walls readable
+    const fill = new THREE.HemisphereLight(0x8a5840, 0x303040, 0.9);
+    this.scene.add(fill);
+
+    // flashlight: spotlight attached to camera — long reach, bright cone
+    this.flashlight = new THREE.SpotLight(0xfff0c0, 14, 32, Math.PI * 0.20, 0.4, 1.0);
     this.flashlight.position.set(0, 0, 0);
     this.flashlightTarget = new THREE.Object3D();
     this.camera.add(this.flashlight);
     this.camera.add(this.flashlightTarget);
     this.flashlightTarget.position.set(0, 0, -1);
     this.flashlight.target = this.flashlightTarget;
+
+    // Warm head-lamp halo on the camera — visible even with flashlight off so
+    // the player is never standing in total black
+    this.headLamp = new THREE.PointLight(0xffd49a, 1.4, 9, 2);
+    this.headLamp.position.set(0, 0, 0);
+    this.camera.add(this.headLamp);
+
     this.scene.add(this.camera);
 
     this.seed = (Date.now() ^ (Math.random() * 1e9)) >>> 0;
@@ -68,6 +84,8 @@ class Game {
     this.player = new Player(this.camera, this.mansion);
     this.items = new Items(this.scene, this.mansion, this.audio, this.rng);
     this.ghost = new Ghost(this.scene, this.mansion, this.audio);
+    this.puzzle = new PuzzleRoom(this.scene, this.rng);
+    this.savedPlayerState = null;   // { position, yaw, pitch } captured on shrine entry
 
     this.controls = new Controls(this.player, {
       interact: () => this.tryInteract(),
@@ -112,6 +130,10 @@ class Game {
     this.player.spawnAt(this.mansion.getStartPosition());
     this.ghost.spawnOnFloor(0, this.player.position);
 
+    // Player wakes up holding the revolver — they shouldn't be defenseless
+    this.player.inventory.gun.has = true;
+    this.player.inventory.gun.ammo = 6;
+
     this.ui.show();
     this.state = 'playing';
 
@@ -145,6 +167,12 @@ class Game {
         return;
       }
     }
+    // Shrine? Open the puzzle room instead of picking up.
+    const shrine = this.items.shrineNear(this.player.position, 2.0);
+    if (shrine) {
+      this._enterPuzzle();
+      return;
+    }
     // Item?
     const item = this.items.itemNear(this.player.position, 1.6);
     if (item) {
@@ -152,6 +180,45 @@ class Game {
       return;
     }
     this.ui.toast('Nothing here.', false, 1.0);
+  }
+
+  _enterPuzzle() {
+    this.savedPlayerState = {
+      position: this.player.position.clone(),
+      yaw: this.player.yaw,
+      pitch: this.player.pitch,
+    };
+    const glyph = this.puzzle.enter();
+    const spawn = this.puzzle.spawnPoint();
+    this.player.position.copy(spawn);
+    this.player.yaw = Math.PI;        // face the chamber center
+    this.player.pitch = 0;
+    this.state = 'puzzle';
+    this.audio.creak();
+    this.ui.showHint(glyph.hint + ' — press B to leave');
+    this.ui.toast('The shrine pulls you under.', true, 2.4);
+  }
+
+  _exitPuzzle(solved) {
+    this.puzzle.exit();
+    this.ui.hideHint();
+    if (this.savedPlayerState) {
+      this.player.position.copy(this.savedPlayerState.position);
+      this.player.yaw = this.savedPlayerState.yaw;
+      this.player.pitch = this.savedPlayerState.pitch;
+      this.savedPlayerState = null;
+    }
+    this.state = 'playing';
+    if (solved) {
+      this.player.adjustSanity(40);
+      this.player.inventory.gun.ammo += 3;
+      this.player.inventory.bombs += 1;
+      if (this.player.hits < 3) this.player.hits += 1;
+      this.audio.pickup();
+      this.ui.toast('The shrine accepts your offering. You feel lighter.', false, 3);
+    } else {
+      this.ui.toast('You step back into the house.', true, 2);
+    }
   }
 
   _pickup(item) {
@@ -211,6 +278,8 @@ class Game {
   }
 
   tryThrowBomb() {
+    // Inside the puzzle room, B is the abort key — exit with no reward.
+    if (this.state === 'puzzle') { this._exitPuzzle(false); return; }
     if (this.state !== 'playing') return;
     if (this.player.inventory.bombs <= 0) return;
     this.player.inventory.bombs--;
@@ -272,17 +341,44 @@ class Game {
     this.lastT = now;
     this.time += dt;
 
-    if (this.state === 'playing') {
+    if (this.state === 'puzzle') {
       this.controls.updateKeyboard();
       this.player.update(dt, this.audio);
       this.items.update(dt, this.time);
+      const result = this.puzzle.update(dt, this.time, this.player.position);
+      if (result === 'correct') {
+        this.audio.stinger();
+        this._exitPuzzle(true);
+      } else if (result === 'wrong') {
+        this.audio.ghostShriek();
+        this.ui.flashDamage();
+        this.player.adjustSanity(-15);
+        const next = this.puzzle.reshuffle();
+        this.ui.showHint(next.hint + ' — press B to leave');
+      }
+      this.ui.update(this.player, this.mansion, dt);
+    } else if (this.state === 'playing') {
+      this.controls.updateKeyboard();
+      this.player.update(dt, this.audio);
+      this.items.update(dt, this.time);
+
+      // doll jumpscare proximity check
+      const doll = this.items.dollNear(this.player.position, 2.5);
+      if (doll) {
+        doll.triggered = true;
+        this.audio.stinger();
+        this.ui.flashGhost();
+        this.ui.flashDamage();
+        this.player.adjustSanity(-25);
+        this.ui.toast("A doll. Its eyes met yours.", true, 2.0);
+      }
 
       // flashlight visibility
       this.flashlight.visible = this.player.flashlightOn;
       // subtle flicker
       if (this.player.flashlightOn) {
         const flick = 0.92 + Math.sin(this.time * 27) * 0.06 + Math.random() * 0.04;
-        this.flashlight.intensity = 6 * flick;
+        this.flashlight.intensity = 14 * flick;
       }
 
       // ghost
@@ -291,6 +387,11 @@ class Game {
       // intensity based on distance
       const closeness = Math.max(0, 1 - result.distance / 16);
       this.audio.setIntensity(0.25 + closeness * 0.75);
+
+      // ghost-near dread: pulse the red CRT overlay when within ~5 meters
+      if (result.distance < 5) {
+        this.ui.flashGhost();
+      }
 
       // sanity changes
       if (this.player.flashlightOn) this.player.adjustSanity(2 * dt);
