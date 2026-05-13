@@ -55,11 +55,8 @@ Open `index.html` in a modern browser, or visit the GitHub Pages deployment.
 
 ## Deploy to GitHub Pages
 
-Pushing to `main` triggers `.github/workflows/pages.yml`, which publishes the
-repository root as a GitHub Pages site.
-
-Manual deploy: open the repository’s **Settings → Pages**, set source to
-*GitHub Actions*, and re-run the workflow.
+See [`docs/DEPLOY.md`](docs/DEPLOY.md). Short version: **Settings → Pages →
+Deploy from branch → main → / (root)**, save, wait a few seconds.
 
 ## Project layout
 
