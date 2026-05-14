@@ -515,5 +515,5 @@ class Game {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-  new Game();
+  window._game = new Game();
 });
