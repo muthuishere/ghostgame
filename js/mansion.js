@@ -447,17 +447,21 @@ export class Mansion {
         break;
       }
       case 'dining': {
-        // a long table in the middle but narrow enough that you can walk around
-        const tw = 4.2, td = 1.2;
-        const table = this._makeProp(tw, 0.9, td, 0x2a1810);
-        const tx = cx + (rng() - 0.5) * 1.5;
-        const tz = cz + (rng() - 0.5) * 1.5;
-        table.position.set(tx, 0.45, tz);
-        this.scene.add(table);
-        this.activeMeshes.push(table);
-        this.activeColliders.push(new THREE.Box3().setFromObject(table));
-        addAccent(tx - tw / 4, tz, 0xffc060, 0.18);
-        addAccent(tx + tw / 4, tz, 0xffc060, 0.18);
+        // a long table in the middle but narrow enough that you can walk around.
+        // Skip the central table on stair rooms so the player can't arrive
+        // inside it after changing floors.
+        if (!room.hasStairUp && !room.hasStairDown) {
+          const tw = 4.2, td = 1.2;
+          const table = this._makeProp(tw, 0.9, td, 0x2a1810);
+          const tx = cx + (rng() - 0.5) * 1.5;
+          const tz = cz + (rng() - 0.5) * 1.5;
+          table.position.set(tx, 0.45, tz);
+          this.scene.add(table);
+          this.activeMeshes.push(table);
+          this.activeColliders.push(new THREE.Box3().setFromObject(table));
+          addAccent(tx - tw / 4, tz, 0xffc060, 0.18);
+          addAccent(tx + tw / 4, tz, 0xffc060, 0.18);
+        }
         addAccentLight(0xffa050, 0.6, 7);
         break;
       }
@@ -470,16 +474,18 @@ export class Mansion {
       }
       case 'ritual': {
         // low altar in the center (short, so player can see over it but it
-        // still blocks). Players can step around it.
-        const altar = this._makeProp(2.4, 0.6, 1.4, 0x4a0000);
-        const ax = cx + (rng() - 0.5) * 1.5;
-        const az = cz + (rng() - 0.5) * 1.5;
-        altar.position.set(ax, 0.3, az);
-        this.scene.add(altar);
-        this.activeMeshes.push(altar);
-        this.activeColliders.push(new THREE.Box3().setFromObject(altar));
-        addAccent(ax - 0.8, az, 0xff2040, 0.20);
-        addAccent(ax + 0.8, az, 0xff2040, 0.20);
+        // still blocks). Skip on stair rooms so arrival doesn't land inside.
+        if (!room.hasStairUp && !room.hasStairDown) {
+          const altar = this._makeProp(2.4, 0.6, 1.4, 0x4a0000);
+          const ax = cx + (rng() - 0.5) * 1.5;
+          const az = cz + (rng() - 0.5) * 1.5;
+          altar.position.set(ax, 0.3, az);
+          this.scene.add(altar);
+          this.activeMeshes.push(altar);
+          this.activeColliders.push(new THREE.Box3().setFromObject(altar));
+          addAccent(ax - 0.8, az, 0xff2040, 0.20);
+          addAccent(ax + 0.8, az, 0xff2040, 0.20);
+        }
         addFloorPatch(0x8a0000, 3.0, 3.0, 0.7); // pentagram-ish glow
         addAccentLight(0xff2040, 1.0, 8);
         break;
@@ -492,17 +498,19 @@ export class Mansion {
         break;
       }
       case 'hall': {
-        // a single column near (but not at) the center
-        const col = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.55, 0.65, WALL_HEIGHT, 12),
-          this._mat(room.theme.accent, { roughness: 0.9 }),
-        );
-        const cox = cx + (rng() - 0.5) * 3;
-        const coz = cz + (rng() - 0.5) * 3;
-        col.position.set(cox, WALL_HEIGHT / 2, coz);
-        this.scene.add(col);
-        this.activeMeshes.push(col);
-        this.activeColliders.push(new THREE.Box3().setFromObject(col));
+        // a single column near (but not at) the center — skip on stair rooms
+        if (!room.hasStairUp && !room.hasStairDown) {
+          const col = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.55, 0.65, WALL_HEIGHT, 12),
+            this._mat(room.theme.accent, { roughness: 0.9 }),
+          );
+          const cox = cx + (rng() - 0.5) * 3;
+          const coz = cz + (rng() - 0.5) * 3;
+          col.position.set(cox, WALL_HEIGHT / 2, coz);
+          this.scene.add(col);
+          this.activeMeshes.push(col);
+          this.activeColliders.push(new THREE.Box3().setFromObject(col));
+        }
         addAccentLight(0x6060a0, 0.4, 7);
         break;
       }
@@ -676,11 +684,16 @@ export class Mansion {
   }
 
   collides(position, radius = 0.4) {
+    // Shrink the player box by epsilon so a player flush against a wall
+    // surface doesn't count as already colliding — otherwise Box3's
+    // inclusive intersection makes the player get stuck sliding along
+    // walls or wedged in corners.
+    const eps = 0.002;
     const min = new THREE.Vector3(
-      position.x - radius, position.y - 0.5, position.z - radius,
+      position.x - radius + eps, position.y - 0.5, position.z - radius + eps,
     );
     const max = new THREE.Vector3(
-      position.x + radius, position.y + 1.5, position.z + radius,
+      position.x + radius - eps, position.y + 1.5, position.z + radius - eps,
     );
     const box = new THREE.Box3(min, max);
     for (const c of this.activeColliders) {
