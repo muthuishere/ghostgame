@@ -366,24 +366,31 @@ class Game {
       const nearStair = this.mansion.nearbyStair(this.player.position);
       if (nearStair && !this._lastStairHint) {
         const dir = nearStair.direction === 'up' ? 'up' : 'down';
-        this.ui.toast(`Press E to go ${dir} the stairs`, false, 2.0);
+        this.ui.toast(`Press E (or USE) to go ${dir} the stairs`, false, 2.0);
         this._lastStairHint = true;
       } else if (!nearStair) {
         this._lastStairHint = false;
       }
 
       // item proximity hint — nudge the player to press E to pick up
+      const nearItem = !nearStair ? this.items.itemNear(this.player.position, 2.2) : null;
       if (!nearStair) {
-        const nearItem = this.items.itemNear(this.player.position, 2.2);
         if (nearItem && this._lastItemHintId !== nearItem) {
           const label = nearItem.def?.label ?? 'something';
           if (nearItem.type !== 'fire' && nearItem.type !== 'doll') {
-            this.ui.toast(`Press E to pick up ${label}`, false, 1.6);
+            this.ui.toast(`Press E (or USE) to pick up ${label}`, false, 1.6);
           }
           this._lastItemHintId = nearItem;
         } else if (!nearItem) {
           this._lastItemHintId = null;
         }
+      }
+
+      // Pulse the mobile USE button when something interactable is in range.
+      const useBtn = document.getElementById('btn-interact');
+      if (useBtn) {
+        const ready = !!(nearStair || nearItem);
+        useBtn.classList.toggle('ready', ready);
       }
 
       // doll jumpscare proximity check
