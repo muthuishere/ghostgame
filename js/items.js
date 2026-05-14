@@ -104,8 +104,20 @@ export class Items {
     if (!def) return;
 
     const center = this.mansion.cellCenter(room.gx, room.gz);
-    const px = center.x + (this.rng() - 0.5) * 6;
-    const pz = center.z + (this.rng() - 0.5) * 6;
+    // Try a handful of offsets and pick the first one that doesn't sit
+    // inside a decor collider — otherwise furniture can block the pickup.
+    let px = center.x;
+    let pz = center.z;
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const ox = (this.rng() - 0.5) * 6;
+      const oz = (this.rng() - 0.5) * 6;
+      const candidate = new THREE.Vector3(center.x + ox, 1.0, center.z + oz);
+      if (!this.mansion.collides(candidate, 0.6)) {
+        px = candidate.x;
+        pz = candidate.z;
+        break;
+      }
+    }
 
     let mesh;
     if (type === 'fire') {
@@ -348,7 +360,7 @@ export class Items {
   }
 
   /** Returns the item under the player if within pickup range. */
-  itemNear(position, radius = 1.4) {
+  itemNear(position, radius = 2.2) {
     let best = null;
     let bestDist = radius * radius;
     for (const it of this.activeItems) {

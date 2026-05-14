@@ -109,6 +109,43 @@ class Game {
     window.addEventListener('resize', () => this._onResize());
     document.getElementById('btn-start').addEventListener('click', () => this.start());
     document.getElementById('btn-restart').addEventListener('click', () => this.restart());
+
+    // Stair prompt — tap or click the banner to climb/descend.
+    const sp = document.getElementById('stair-prompt');
+    const onStairTap = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (this._pendingStair) {
+        this._changeFloor(this._pendingStair.targetFloor);
+      }
+    };
+    sp.addEventListener('touchstart', onStairTap, { passive: false });
+    sp.addEventListener('click', onStairTap);
+
+    this._pendingStair = null;
+    this._stairHoldTime = 0;
+  }
+
+  // Show/hide the big stair prompt; auto-trigger after 1.5 s on the stair.
+  _updateStairPrompt(nearStair, dt) {
+    const sp = document.getElementById('stair-prompt');
+    if (!sp) return;
+    if (nearStair) {
+      this._pendingStair = nearStair;
+      this._stairHoldTime += dt;
+      const dir = nearStair.direction === 'up' ? '▲ GO UPSTAIRS ▲' : '▼ GO DOWNSTAIRS ▼';
+      document.getElementById('stair-prompt-text').textContent = dir;
+      sp.classList.remove('hidden');
+      // Auto-trigger after 1.5 s standing on the stair.
+      if (this._stairHoldTime >= 1.5) {
+        this._stairHoldTime = 0;
+        this._changeFloor(nearStair.targetFloor);
+      }
+    } else {
+      this._pendingStair = null;
+      this._stairHoldTime = 0;
+      sp.classList.add('hidden');
+    }
   }
 
   _onResize() {
@@ -174,7 +211,7 @@ class Game {
       return;
     }
     // Item?
-    const item = this.items.itemNear(this.player.position, 1.6);
+    const item = this.items.itemNear(this.player.position, 2.2);
     if (item) {
       this._pickup(item);
       return;
@@ -362,6 +399,31 @@ class Game {
       this.player.update(dt, this.audio);
       this.items.update(dt, this.time);
 
+      // stair proximity — show the big stair prompt and auto-trigger
+      const nearStair = this.mansion.nearbyStair(this.player.position);
+      this._updateStairPrompt(nearStair, dt);
+
+      // item proximity hint — nudge the player to press E to pick up
+      const nearItem = !nearStair ? this.items.itemNear(this.player.position, 2.2) : null;
+      if (!nearStair) {
+        if (nearItem && this._lastItemHintId !== nearItem) {
+          const label = nearItem.def?.label ?? 'something';
+          if (nearItem.type !== 'fire' && nearItem.type !== 'doll') {
+            this.ui.toast(`Press E (or USE) to pick up ${label}`, false, 1.6);
+          }
+          this._lastItemHintId = nearItem;
+        } else if (!nearItem) {
+          this._lastItemHintId = null;
+        }
+      }
+
+      // Pulse the mobile USE button when something interactable is in range.
+      const useBtn = document.getElementById('btn-interact');
+      if (useBtn) {
+        const ready = !!(nearStair || nearItem);
+        useBtn.classList.toggle('ready', ready);
+      }
+
       // doll jumpscare proximity check
       const doll = this.items.dollNear(this.player.position, 2.5);
       if (doll) {
@@ -453,5 +515,5 @@ class Game {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-  new Game();
+  window._game = new Game();
 });

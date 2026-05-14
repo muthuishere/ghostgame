@@ -24,7 +24,13 @@ export class Controls {
     this.keys = new Set();
     this.pointerLocked = false;
 
-    this.isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+    // Broad touch detection: covers phones, tablets, and hybrid devices.
+    // Also treat narrow viewports as touch so emulators / responsive
+    // previews show the mobile HUD.
+    this.isTouchDevice = ('ontouchstart' in window)
+      || navigator.maxTouchPoints > 0
+      || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches)
+      || window.innerWidth < 900;
 
     this._bindKeyboard();
     this._bindMouse();
@@ -73,12 +79,14 @@ export class Controls {
 
   /* ----- mobile ----- */
   _bindMobile() {
+    // Always wire the on-screen action buttons — they cost nothing on
+    // desktop and act as a safety net if touch detection misfires.
+    this._bindActionButtons();
     if (!this.isTouchDevice) return;
     document.getElementById('mobile-controls').classList.remove('hidden');
 
     this._bindJoystick();
     this._bindLookPad();
-    this._bindActionButtons();
   }
 
   _bindJoystick() {
@@ -148,22 +156,29 @@ export class Controls {
   }
 
   _bindActionButtons() {
-    document.getElementById('btn-interact').addEventListener('click', (e) => {
-      e.preventDefault();
-      this.callbacks.interact?.();
-    });
-    document.getElementById('btn-flashlight').addEventListener('click', (e) => {
-      e.preventDefault();
-      this.callbacks.flashlight?.();
-    });
-    document.getElementById('btn-shoot').addEventListener('click', (e) => {
-      e.preventDefault();
-      this.callbacks.shoot?.();
-    });
-    document.getElementById('btn-bomb')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.callbacks.bomb?.();
-    });
+    // Use both touchstart (instant on mobile) and click (fallback for
+    // hybrid devices or accessibility). Guard against firing both for a
+    // single tap by swallowing the click that follows touchstart.
+    const wire = (id, cb) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      let touched = false;
+      el.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        touched = true;
+        cb?.();
+        setTimeout(() => { touched = false; }, 350);
+      }, { passive: false });
+      el.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (touched) return;
+        cb?.();
+      });
+    };
+    wire('btn-interact', this.callbacks.interact);
+    wire('btn-flashlight', this.callbacks.flashlight);
+    wire('btn-shoot', this.callbacks.shoot);
+    wire('btn-bomb', this.callbacks.bomb);
   }
 
   /** Call every frame to translate held keys into move input */

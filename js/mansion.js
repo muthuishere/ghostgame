@@ -229,7 +229,10 @@ export class Mansion {
       this._buildWall(room, 'w', centerX, centerZ, wallMat, accentMat);
 
       // decor / props for atmosphere — also act as colliders
-      this._decorate(room, centerX, centerZ);
+      // skip stair rooms so props never block the trigger zone
+      if (!room.hasStairUp && !room.hasStairDown) {
+        this._decorate(room, centerX, centerZ);
+      }
 
       // stairs
       if (room.hasStairUp) {
@@ -325,33 +328,256 @@ export class Mansion {
   }
 
   _decorate(room, cx, cz) {
-    // a few decorative props depending on type — also act as colliders
+    // Signature wall-aligned props per room type. Furniture hugs the walls
+    // so the room center stays walkable and items/stairs remain reachable.
+    // Each room type also gets atmospheric accents (lights, low decor) so
+    // they read as distinct spaces instead of identical boxes.
     const rng = this.rng;
-    const propCount = 1 + Math.floor(rng() * 3);
-    for (let i = 0; i < propCount; i++) {
-      const px = cx + (rng() - 0.5) * (ROOM_SIZE - 4);
-      const pz = cz + (rng() - 0.5) * (ROOM_SIZE - 4);
-      const type = room.type;
-      let prop;
-      if (type === 'library' || type === 'study') {
-        prop = this._makeProp(1.2, 2.4, 0.6, room.theme.accent);
-      } else if (type === 'bedroom' || type === 'nursery') {
-        prop = this._makeProp(2.8, 1.2, 1.6, 0x1a0a0a);
-      } else if (type === 'dining' || type === 'kitchen') {
-        prop = this._makeProp(2.0, 1.0, 1.2, 0x2a1810);
-      } else if (type === 'bathroom') {
-        prop = this._makeProp(1.0, 1.3, 1.0, 0x1a1a20);
-      } else if (type === 'ritual') {
-        prop = this._makeProp(1.8, 0.4, 1.8, 0x4a0000);
-      } else {
-        prop = this._makeProp(1.0 + rng(), 0.8 + rng() * 1.4, 1.0 + rng(), room.theme.accent);
+    const type = room.type;
+    const half = ROOM_SIZE / 2;
+
+    // Pick walls to mount big furniture against, preferring walls without
+    // doorways so we never block a passage.
+    const allSides = ['n', 's', 'e', 'w'];
+    const closedSides = allSides.filter(s => !room.openings[s]);
+    const pickSides = (n) => {
+      const pool = (closedSides.length >= n ? closedSides : allSides).slice();
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
       }
-      prop.position.set(px, prop.geometry.parameters.height / 2, pz);
+      return pool.slice(0, n);
+    };
+
+    // Place a box flush against the given wall, offset by half its depth so
+    // it sits against the wall (not through it). Inset along the wall is a
+    // value in [-half+w/2, half-w/2] picked from rng.
+    const placeOnWall = (side, w, h, d, color, opts = {}) => {
+      const inset = (rng() - 0.5) * (ROOM_SIZE - w - 2);
+      let px = cx, pz = cz;
+      if (side === 'n') { pz = cz - half + d / 2 + 0.25; px = cx + inset; }
+      if (side === 's') { pz = cz + half - d / 2 - 0.25; px = cx + inset; }
+      if (side === 'e') { px = cx + half - d / 2 - 0.25; pz = cz + inset; }
+      if (side === 'w') { px = cx - half + d / 2 + 0.25; pz = cz + inset; }
+      const prop = this._makeProp(w, h, d, color);
+      prop.position.set(px, h / 2 + (opts.lift || 0), pz);
       this.scene.add(prop);
       this.activeMeshes.push(prop);
-      const box = new THREE.Box3().setFromObject(prop);
-      this.activeColliders.push(box);
+      this.activeColliders.push(new THREE.Box3().setFromObject(prop));
+      return { x: px, z: pz, w, h, d };
+    };
+
+    // Themed accent light — gives each room its own glow signature.
+    const addAccentLight = (color, intensity = 0.8, range = 7) => {
+      const light = new THREE.PointLight(color, intensity, range, 2);
+      light.position.set(
+        cx + (rng() - 0.5) * 4,
+        WALL_HEIGHT * 0.7,
+        cz + (rng() - 0.5) * 4,
+      );
+      this.scene.add(light);
+      this.activeMeshes.push(light);
+    };
+
+    // Small non-colliding accent (e.g. candle flame, glow orb)
+    const addAccent = (px, pz, color, size = 0.18) => {
+      const mat = new THREE.MeshBasicMaterial({
+        color, transparent: true, opacity: 0.9,
+      });
+      const m = new THREE.Mesh(new THREE.SphereGeometry(size, 8, 8), mat);
+      m.position.set(px, 0.9, pz);
+      this.scene.add(m);
+      this.activeMeshes.push(m);
+      const l = new THREE.PointLight(color, 0.6, 3.5, 2);
+      l.position.set(px, 1.0, pz);
+      this.scene.add(l);
+      this.activeMeshes.push(l);
+    };
+
+    // A flat colored patch on the floor (rug / bloodstain / scorch).
+    const addFloorPatch = (color, w, d, emissiveStrength = 0.3) => {
+      const mat = new THREE.MeshStandardMaterial({
+        color, emissive: color, emissiveIntensity: emissiveStrength,
+        roughness: 1, side: THREE.DoubleSide,
+      });
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat);
+      m.rotation.x = -Math.PI / 2;
+      m.position.set(
+        cx + (rng() - 0.5) * 4,
+        0.02,
+        cz + (rng() - 0.5) * 4,
+      );
+      this.scene.add(m);
+      this.activeMeshes.push(m);
+    };
+
+    const sides2 = pickSides(2);
+
+    switch (type) {
+      case 'bedroom': {
+        placeOnWall(sides2[0], 4.0, 0.8, 2.4, 0x1a0a0a); // bed frame
+        placeOnWall(sides2[0], 1.2, 0.6, 0.8, 0x2a1a14, { lift: 0.8 }); // pillow stack
+        placeOnWall(sides2[1] || 's', 1.0, 1.6, 0.6, 0x2a1810); // wardrobe
+        addFloorPatch(0x4a0000, 1.8, 1.4, 0.5); // bloodstain
+        addAccentLight(0xff5040, 0.5, 6);
+        break;
+      }
+      case 'nursery': {
+        placeOnWall(sides2[0], 2.4, 1.2, 1.6, 0x3a1a3a); // crib
+        placeOnWall(sides2[1] || 'e', 0.8, 0.8, 0.8, 0x5a2a4a); // toy chest
+        addAccent(cx + 1.2, cz - 1.0, 0xff80c0, 0.22); // glowing doll-like orb
+        addAccent(cx - 1.6, cz + 1.5, 0xff80c0, 0.18);
+        addAccentLight(0xff90b0, 0.7, 7);
+        break;
+      }
+      case 'library':
+      case 'study': {
+        // tall bookshelves on two walls
+        placeOnWall(sides2[0], 3.6, 3.6, 0.7, room.theme.accent);
+        placeOnWall(sides2[1] || 'w', 2.6, 3.4, 0.7, room.theme.accent);
+        addFloorPatch(0x2a1a08, 2.0, 1.0, 0.2); // scattered books
+        addAccentLight(0xffc080, 0.5, 6);
+        break;
+      }
+      case 'kitchen': {
+        placeOnWall(sides2[0], 5.0, 1.0, 1.0, 0x2a1810); // long counter
+        placeOnWall(sides2[1] || 'e', 1.4, 1.6, 0.8, 0x1a1010); // stove hutch
+        addAccent(cx, cz, 0xff8030, 0.18); // a single candle
+        addAccentLight(0xffb050, 0.6, 6);
+        break;
+      }
+      case 'dining': {
+        // a long table in the middle but narrow enough that you can walk around.
+        // Skip the central table on stair rooms so the player can't arrive
+        // inside it after changing floors.
+        if (!room.hasStairUp && !room.hasStairDown) {
+          const tw = 4.2, td = 1.2;
+          const table = this._makeProp(tw, 0.9, td, 0x2a1810);
+          const tx = cx + (rng() - 0.5) * 1.5;
+          const tz = cz + (rng() - 0.5) * 1.5;
+          table.position.set(tx, 0.45, tz);
+          this.scene.add(table);
+          this.activeMeshes.push(table);
+          this.activeColliders.push(new THREE.Box3().setFromObject(table));
+          addAccent(tx - tw / 4, tz, 0xffc060, 0.18);
+          addAccent(tx + tw / 4, tz, 0xffc060, 0.18);
+        }
+        addAccentLight(0xffa050, 0.6, 7);
+        break;
+      }
+      case 'bathroom': {
+        placeOnWall(sides2[0], 2.6, 0.8, 1.4, 0x1a1a20); // tub
+        placeOnWall(sides2[1] || 'n', 1.0, 1.0, 0.7, 0x202028); // sink
+        addFloorPatch(0x202028, 1.6, 1.0, 0.4); // puddle
+        addAccentLight(0x6080a0, 0.4, 6);
+        break;
+      }
+      case 'ritual': {
+        // low altar in the center (short, so player can see over it but it
+        // still blocks). Skip on stair rooms so arrival doesn't land inside.
+        if (!room.hasStairUp && !room.hasStairDown) {
+          const altar = this._makeProp(2.4, 0.6, 1.4, 0x4a0000);
+          const ax = cx + (rng() - 0.5) * 1.5;
+          const az = cz + (rng() - 0.5) * 1.5;
+          altar.position.set(ax, 0.3, az);
+          this.scene.add(altar);
+          this.activeMeshes.push(altar);
+          this.activeColliders.push(new THREE.Box3().setFromObject(altar));
+          addAccent(ax - 0.8, az, 0xff2040, 0.20);
+          addAccent(ax + 0.8, az, 0xff2040, 0.20);
+        }
+        addFloorPatch(0x8a0000, 3.0, 3.0, 0.7); // pentagram-ish glow
+        addAccentLight(0xff2040, 1.0, 8);
+        break;
+      }
+      case 'parlor': {
+        placeOnWall(sides2[0], 2.0, 1.2, 1.4, 0x3a1a1a); // armchair
+        placeOnWall(sides2[1] || 'w', 1.0, 0.9, 1.0, 0x2a1810); // side table
+        addAccent(cx + 1.5, cz - 1.5, 0xffc080, 0.18);
+        addAccentLight(0xffa070, 0.5, 6);
+        break;
+      }
+      case 'hall': {
+        // a single column near (but not at) the center — skip on stair rooms
+        if (!room.hasStairUp && !room.hasStairDown) {
+          const col = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.55, 0.65, WALL_HEIGHT, 12),
+            this._mat(room.theme.accent, { roughness: 0.9 }),
+          );
+          const cox = cx + (rng() - 0.5) * 3;
+          const coz = cz + (rng() - 0.5) * 3;
+          col.position.set(cox, WALL_HEIGHT / 2, coz);
+          this.scene.add(col);
+          this.activeMeshes.push(col);
+          this.activeColliders.push(new THREE.Box3().setFromObject(col));
+        }
+        addAccentLight(0x6060a0, 0.4, 7);
+        break;
+      }
+      case 'storage': {
+        // stacked crates against two walls
+        placeOnWall(sides2[0], 1.4, 1.4, 1.4, 0x2a1810);
+        placeOnWall(sides2[0], 1.2, 1.0, 1.2, 0x3a2010, { lift: 1.4 });
+        placeOnWall(sides2[1] || 'e', 1.6, 1.6, 1.4, 0x2a1810);
+        addAccentLight(0x806040, 0.3, 5);
+        break;
+      }
+      case 'workshop': {
+        placeOnWall(sides2[0], 3.0, 1.0, 1.2, 0x2a1810); // workbench
+        placeOnWall(sides2[1] || 's', 0.8, 1.8, 0.8, 0x1a1010); // toolbox tower
+        addAccent(cx + (rng() - 0.5) * 3, cz + (rng() - 0.5) * 3, 0xff6020, 0.18);
+        addAccentLight(0xff8040, 0.5, 6);
+        break;
+      }
+      default: {
+        // generic fallback: a single wall prop and a dim light
+        placeOnWall(sides2[0], 1.6, 1.6, 1.0, room.theme.accent);
+        addAccentLight(room.theme.accent, 0.4, 6);
+      }
     }
+
+    // Some rooms get an interior partition wall to break the boxy feel
+    // (creates an L-shape or alcove). Skip if room has stairs to avoid
+    // covering the trigger.
+    if (!room.hasStairUp && !room.hasStairDown && rng() < 0.45) {
+      this._addPartition(room, cx, cz);
+    }
+  }
+
+  /**
+   * Builds an internal half-wall inside a room, creating an L-shape or
+   * alcove so the room doesn't feel like a plain box. A gap is left at one
+   * end so the player can always navigate around it.
+   */
+  _addPartition(room, cx, cz) {
+    const rng = this.rng;
+    const horizontal = rng() < 0.5;          // along X axis vs Z axis
+    const offset = (rng() - 0.5) * 4;         // distance from room center
+    const wallMat = this._mat(room.theme.wall, { roughness: 0.98 });
+    // partition length covers ~60% of the room so an opening remains
+    const length = ROOM_SIZE * (0.5 + rng() * 0.2);
+    const gapBias = rng() < 0.5 ? -1 : 1;     // which end the gap is on
+    const segLen = length * 0.75;
+    const segOffset = gapBias * (ROOM_SIZE / 2 - segLen / 2 - 1.5);
+
+    let px, pz, sx, sz;
+    if (horizontal) {
+      px = cx + segOffset;
+      pz = cz + offset;
+      sx = segLen;
+      sz = 0.3;
+    } else {
+      px = cx + offset;
+      pz = cz + segOffset;
+      sx = 0.3;
+      sz = segLen;
+    }
+    const geo = new THREE.BoxGeometry(sx, WALL_HEIGHT * 0.95, sz);
+    const mesh = new THREE.Mesh(geo, wallMat);
+    mesh.position.set(px, WALL_HEIGHT * 0.475, pz);
+    this.scene.add(mesh);
+    this.activeMeshes.push(mesh);
+    this.activeColliders.push(new THREE.Box3().setFromObject(mesh));
   }
 
   _makeProp(w, h, d, color) {
@@ -458,11 +684,16 @@ export class Mansion {
   }
 
   collides(position, radius = 0.4) {
+    // Shrink the player box by epsilon so a player flush against a wall
+    // surface doesn't count as already colliding — otherwise Box3's
+    // inclusive intersection makes the player get stuck sliding along
+    // walls or wedged in corners.
+    const eps = 0.002;
     const min = new THREE.Vector3(
-      position.x - radius, position.y - 0.5, position.z - radius,
+      position.x - radius + eps, position.y - 0.5, position.z - radius + eps,
     );
     const max = new THREE.Vector3(
-      position.x + radius, position.y + 1.5, position.z + radius,
+      position.x + radius - eps, position.y + 1.5, position.z + radius - eps,
     );
     const box = new THREE.Box3(min, max);
     for (const c of this.activeColliders) {
@@ -471,7 +702,7 @@ export class Mansion {
     return false;
   }
 
-  nearbyStair(position, radius = 1.6) {
+  nearbyStair(position, radius = 3.5) {
     for (const s of this.activeStairs) {
       const dx = position.x - s.x;
       const dz = position.z - s.z;

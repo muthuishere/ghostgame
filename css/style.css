@@ -435,6 +435,47 @@ html, body {
 }
 #static-overlay.show { opacity: 0.5; }
 
+/* ---------- Stair prompt ---------- */
+
+#stair-prompt {
+  position: absolute;
+  bottom: 50%;
+  left: 50%;
+  transform: translate(-50%, 50%);
+  background: rgba(10, 4, 0, 0.82);
+  border: 2px solid #c08030;
+  border-radius: 12px;
+  padding: 18px 36px;
+  text-align: center;
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 20;
+  user-select: none;
+  -webkit-user-select: none;
+  animation: stairPulse 1.2s ease-in-out infinite;
+}
+#stair-prompt-text {
+  display: block;
+  font-family: 'Courier New', monospace;
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: #ffd880;
+  letter-spacing: 0.12em;
+}
+#stair-prompt small {
+  display: block;
+  margin-top: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.7rem;
+  color: #a08040;
+  letter-spacing: 0.08em;
+}
+@keyframes stairPulse {
+  0%, 100% { box-shadow: 0 0 14px rgba(200, 130, 30, 0.5); }
+  50%      { box-shadow: 0 0 32px rgba(255, 200, 60, 0.9); }
+}
+#stair-prompt.hidden { display: none; }
+
 /* ---------- Mobile controls ---------- */
 
 #mobile-controls {
@@ -479,6 +520,9 @@ html, body {
   grid-template-columns: repeat(2, auto);
   gap: 8px;
   pointer-events: auto;
+  /* must sit above #look-pad so taps on buttons aren't eaten by the
+     drag-to-look zone */
+  z-index: 14;
 }
 
 .action-btn {
@@ -493,6 +537,35 @@ html, body {
   letter-spacing: 0.1em;
   cursor: pointer;
   touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* USE is the primary action — make it bigger and warm-coloured so the
+   player can find it instantly on mobile. */
+#btn-interact {
+  width: 100px;
+  height: 72px;
+  font-size: 0.95rem;
+  font-weight: bold;
+  border-color: #b07020;
+  color: #ffd080;
+  background: rgba(40, 16, 0, 0.7);
+}
+
+/* Pulse glow when the player is standing next to a stair or pickup
+   so it's obvious there's something to interact with. */
+#btn-interact.ready {
+  border-color: #ffc060;
+  color: #fff5d0;
+  background: rgba(80, 32, 0, 0.85);
+  box-shadow: 0 0 18px rgba(255, 180, 60, 0.85);
+  animation: pulseReady 0.9s ease-in-out infinite;
+}
+@keyframes pulseReady {
+  0%, 100% { box-shadow: 0 0 14px rgba(255, 180, 60, 0.6); }
+  50%      { box-shadow: 0 0 26px rgba(255, 220, 120, 1.0); }
 }
 
 #btn-bomb {
@@ -510,10 +583,13 @@ html, body {
   position: absolute;
   top: 0;
   right: 0;
+  /* Stop well above the action-button strip so the button taps land on
+     the buttons, not on the look-pad. */
+  bottom: calc(env(safe-area-inset-bottom, 0) + 170px);
   width: 60%;
-  height: 70%;
   pointer-events: auto;
   touch-action: none;
+  z-index: 11;
 }
 
 /* ---------- End screen ---------- */
