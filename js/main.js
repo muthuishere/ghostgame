@@ -174,7 +174,7 @@ class Game {
       return;
     }
     // Item?
-    const item = this.items.itemNear(this.player.position, 1.6);
+    const item = this.items.itemNear(this.player.position, 2.2);
     if (item) {
       this._pickup(item);
       return;
@@ -370,6 +370,20 @@ class Game {
         this._lastStairHint = true;
       } else if (!nearStair) {
         this._lastStairHint = false;
+      }
+
+      // item proximity hint — nudge the player to press E to pick up
+      if (!nearStair) {
+        const nearItem = this.items.itemNear(this.player.position, 2.2);
+        if (nearItem && this._lastItemHintId !== nearItem) {
+          const label = nearItem.def?.label ?? 'something';
+          if (nearItem.type !== 'fire' && nearItem.type !== 'doll') {
+            this.ui.toast(`Press E to pick up ${label}`, false, 1.6);
+          }
+          this._lastItemHintId = nearItem;
+        } else if (!nearItem) {
+          this._lastItemHintId = null;
+        }
       }
 
       // doll jumpscare proximity check
