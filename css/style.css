@@ -435,6 +435,47 @@ html, body {
 }
 #static-overlay.show { opacity: 0.5; }
 
+/* ---------- Stair prompt ---------- */
+
+#stair-prompt {
+  position: absolute;
+  bottom: 50%;
+  left: 50%;
+  transform: translate(-50%, 50%);
+  background: rgba(10, 4, 0, 0.82);
+  border: 2px solid #c08030;
+  border-radius: 12px;
+  padding: 18px 36px;
+  text-align: center;
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 20;
+  user-select: none;
+  -webkit-user-select: none;
+  animation: stairPulse 1.2s ease-in-out infinite;
+}
+#stair-prompt-text {
+  display: block;
+  font-family: 'Courier New', monospace;
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: #ffd880;
+  letter-spacing: 0.12em;
+}
+#stair-prompt small {
+  display: block;
+  margin-top: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.7rem;
+  color: #a08040;
+  letter-spacing: 0.08em;
+}
+@keyframes stairPulse {
+  0%, 100% { box-shadow: 0 0 14px rgba(200, 130, 30, 0.5); }
+  50%      { box-shadow: 0 0 32px rgba(255, 200, 60, 0.9); }
+}
+#stair-prompt.hidden { display: none; }
+
 /* ---------- Mobile controls ---------- */
 
 #mobile-controls {

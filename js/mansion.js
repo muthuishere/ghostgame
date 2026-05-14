@@ -702,7 +702,7 @@ export class Mansion {
     return false;
   }
 
-  nearbyStair(position, radius = 2.5) {
+  nearbyStair(position, radius = 3.5) {
     for (const s of this.activeStairs) {
       const dx = position.x - s.x;
       const dz = position.z - s.z;
