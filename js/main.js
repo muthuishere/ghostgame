@@ -362,6 +362,16 @@ class Game {
       this.player.update(dt, this.audio);
       this.items.update(dt, this.time);
 
+      // stair proximity hint — nudge the player to press E
+      const nearStair = this.mansion.nearbyStair(this.player.position);
+      if (nearStair && !this._lastStairHint) {
+        const dir = nearStair.direction === 'up' ? 'up' : 'down';
+        this.ui.toast(`Press E to go ${dir} the stairs`, false, 2.0);
+        this._lastStairHint = true;
+      } else if (!nearStair) {
+        this._lastStairHint = false;
+      }
+
       // doll jumpscare proximity check
       const doll = this.items.dollNear(this.player.position, 2.5);
       if (doll) {

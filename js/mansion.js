@@ -229,7 +229,10 @@ export class Mansion {
       this._buildWall(room, 'w', centerX, centerZ, wallMat, accentMat);
 
       // decor / props for atmosphere — also act as colliders
-      this._decorate(room, centerX, centerZ);
+      // skip stair rooms so props never block the trigger zone
+      if (!room.hasStairUp && !room.hasStairDown) {
+        this._decorate(room, centerX, centerZ);
+      }
 
       // stairs
       if (room.hasStairUp) {
@@ -471,7 +474,7 @@ export class Mansion {
     return false;
   }
 
-  nearbyStair(position, radius = 1.6) {
+  nearbyStair(position, radius = 2.5) {
     for (const s of this.activeStairs) {
       const dx = position.x - s.x;
       const dz = position.z - s.z;
