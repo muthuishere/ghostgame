@@ -24,7 +24,13 @@ export class Controls {
     this.keys = new Set();
     this.pointerLocked = false;
 
-    this.isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+    // Broad touch detection: covers phones, tablets, and hybrid devices.
+    // Also treat narrow viewports as touch so emulators / responsive
+    // previews show the mobile HUD.
+    this.isTouchDevice = ('ontouchstart' in window)
+      || navigator.maxTouchPoints > 0
+      || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches)
+      || window.innerWidth < 900;
 
     this._bindKeyboard();
     this._bindMouse();
@@ -73,12 +79,14 @@ export class Controls {
 
   /* ----- mobile ----- */
   _bindMobile() {
+    // Always wire the on-screen action buttons — they cost nothing on
+    // desktop and act as a safety net if touch detection misfires.
+    this._bindActionButtons();
     if (!this.isTouchDevice) return;
     document.getElementById('mobile-controls').classList.remove('hidden');
 
     this._bindJoystick();
     this._bindLookPad();
-    this._bindActionButtons();
   }
 
   _bindJoystick() {

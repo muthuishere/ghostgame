@@ -479,6 +479,9 @@ html, body {
   grid-template-columns: repeat(2, auto);
   gap: 8px;
   pointer-events: auto;
+  /* must sit above #look-pad so taps on buttons aren't eaten by the
+     drag-to-look zone */
+  z-index: 14;
 }
 
 .action-btn {
@@ -539,10 +542,13 @@ html, body {
   position: absolute;
   top: 0;
   right: 0;
+  /* Stop well above the action-button strip so the button taps land on
+     the buttons, not on the look-pad. */
+  bottom: calc(env(safe-area-inset-bottom, 0) + 170px);
   width: 60%;
-  height: 70%;
   pointer-events: auto;
   touch-action: none;
+  z-index: 11;
 }
 
 /* ---------- End screen ---------- */
